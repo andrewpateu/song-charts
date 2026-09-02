@@ -188,7 +188,7 @@
     if (song.capo) bits.push("Capo " + esc(song.capo));
     if (song.tuning) bits.push("Tuning " + esc(song.tuning));
     let chart = "";
-    if (song.chartType === "chords" || song.chartType === "both") chart += '<div class="chart-label">Chords over lyrics</div>' + renderBody(song.body);
+    if (song.chartType === "chords" || song.chartType === "both") chart += '<div class="chart-label">Chords</div>' + renderBody(song.body);
     if (song.chartType === "tab" || song.chartType === "both") chart += '<div class="chart-label">Tab</div>' + renderTab(song.tab || (song.chartType === "tab" ? song.body : ""));
     if (song.chartType === "none" || !song.chartType) chart = '<div class="notice"><strong>No licensed chart yet.</strong> Metadata only — no lyrics, and no guessed chord sheet.</div>';
     app.replaceChildren($('<article><p class="crumbs"><a href="#/">Catalog</a> / <a href="' + artistHref(a) + '">' + esc(a.name) + '</a></p><h1>' + esc(song.title) + '</h1><p class="meta"><a href="' + artistHref(a) + '">' + esc(a.name) + "</a>" + (bits.length ? " · " + bits.join(" · ") : "") + "</p>" + chart + '<p class="source">Source: ' + esc(song.source || "Not recorded") + (song.license ? " · License: " + esc(song.license) : "") + "</p></article>"));
@@ -219,7 +219,7 @@
     const res = await fetch(url);
     if (!res.ok) { app.textContent = "Could not load catalog.json (" + res.status + ")."; return; }
     catalog = await res.json();
-    const extras = ["meta.json", "charts.json"];
+    const extras = ["meta.json", "charts.json", "more.json"];
     for (let i = 0; i < extras.length; i++) {
       try {
         const mres = await fetch(url.replace(/catalog\.json(?:\?.*)?$/, extras[i]));

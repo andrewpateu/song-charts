@@ -28,7 +28,7 @@
 - `license`: `pd` | `cc` | `original` | `none`
 - `body`: ChordPro-style text (`[Verse]` section labels; `[Am]lyric` chords). Empty when `none`.
 
-Prefer adding PD charts in `scripts/pd_more.py` (or `pd_songs.py`) and running `python3 scripts/build_catalog.py`.
+Add public-domain charts or metadata records to `data/*.json` (register any new extra file in the extras list in `js/app.js`). Run `python3 scripts/build_catalog.py` to validate.
 
 ## Pull requests
 

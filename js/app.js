@@ -151,7 +151,7 @@
   function renderTab(tab) { return tab ? '<pre class="tab" role="region" aria-label="Guitar tab">' + esc(String(tab).trimEnd()) + "</pre>" : ""; }
   function filtersBar() {
     const btn = (id, label) => '<button type="button" class="filter" data-filter="' + id + '" aria-pressed="' + (state.filter === id) + '">' + label + "</button>";
-    return '<div class="filters" role="group" aria-label="Chart type filters">' + btn("all", "All") + btn("playable", "Playable") + btn("listed", "Listed only") + "</div>";
+    return '<div class="filters" role="group" aria-label="Chart type filters">' + btn("all", "All") + btn("playable", "Playable") + btn("listed", "Listed") + "</div>";
   }
   function searchBox(autofocus) {
     return '<div class="search-wrap"><label class="search-label" for="q">Search titles, artists, aliases</label><input class="search" id="q" type="search" spellcheck="false" autocomplete="off" placeholder="bunii, niccolò terre, amazing grace…" value="' + esc(state.q) + '"' + (autofocus ? " autofocus" : "") + ">" + "</div>" + filtersBar();
@@ -198,7 +198,8 @@
     if (input) input.addEventListener("input", () => {
       state.q = input.value; render();
       const again = document.getElementById("q");
-      if (again) { again.focus(); try { again.setSelectionRange(again.value.length, again.value.length); } catch (e) {} }
+      if (again) { again.focus(); try { again.setSelectionRange(again.value.length, again.value.length); } catch (e) {}
+      }
     });
     app.querySelectorAll("[data-filter]").forEach((btn) => btn.addEventListener("click", () => { state.filter = btn.getAttribute("data-filter") || "all"; render(); }));
   }

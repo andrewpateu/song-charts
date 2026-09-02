@@ -296,7 +296,7 @@
     catalog = await res.json();
     if (!Array.isArray(catalog.artists)) catalog.artists = [];
     if (!Array.isArray(catalog.songs)) catalog.songs = [];
-    const extras = ["meta.json", "more.json", "charts.json", "charts2.json", "charts3.json", "charts4.json", "charts5.json", "indie1.json", "indie2.json", "indie3.json", "indie4.json"];
+    const extras = ["meta.json", "more.json", "charts.json", "charts2.json", "charts3.json", "charts4.json", "charts5.json", "charts6.json", "indie1.json", "indie2.json", "indie3.json", "indie4.json"];
     for (let i = 0; i < extras.length; i++) {
       try {
         const mres = await fetch(url.replace(/catalog\.json(?:\?.*)?$/, extras[i]));

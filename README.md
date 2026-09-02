@@ -36,12 +36,6 @@ Song and artist records live in `data/*.json`.
 
 `chartType` is `chords`, `tab`, `both`, or `none`. Songs without a licensed chart stay `none` (listed, not playable).
 
-Validate the merged catalog (duplicate ids, empty artists, stub charts):
-
-```bash
-python3 scripts/build_catalog.py
-```
-
 ## Enable Pages (if the live URL 404s)
 
 Repo **Settings → Pages**:

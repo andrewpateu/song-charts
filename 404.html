@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting…</title>
+  <script>
+  (function () {
+    var parts = location.pathname.split("/").filter(Boolean);
+    var idx = parts.indexOf("song-charts");
+    var base = idx >= 0 ? "/" + parts.slice(0, idx + 1).join("/") + "/" : "./";
+    var rest = (idx >= 0 ? parts.slice(idx + 1) : parts).filter(function (p) { return p !== "404.html"; });
+    if (rest.length) location.replace(base + "#/" + rest.join("/"));
+    else location.replace(base);
+  })();
+  </script>
+  <meta http-equiv="refresh" content="0; url=./">
+</head>
+<body>
+  <p><a href="./">Back to catalog</a></p>
+</body>
+</html>

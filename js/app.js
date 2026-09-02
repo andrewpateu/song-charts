@@ -6,12 +6,7 @@
   let catalog = null;
   let artistsById = new Map();
   let songsById = new Map();
-
-  const state = {
-    q: "",
-    filter: "all"
-  };
-
+  const state = { q: "", filter: "all" };
   const CHORD_TOKEN = /^[A-G][#b]?(?:maj7|maj9|maj|min7|min|m7b5|m7|m9|m11|m13|madd9|dim7|dim|aug|sus2|sus4|sus|add9|add11|add2|add4|7sus4|9sus4|7|9|11|13|6|2|4|m)?(?:\/[A-G][#b]?)?$/i;
   const SECTION_NAME = /^(verse|chorus|bridge|intro|outro|tag|instrumental|pre-?chorus|prechorus|solo|interlude|refrain|coda|ending|break|hook|inst|ending)(\s*\d+)?(\s*[A-Z])?$/i;
 
@@ -20,37 +15,20 @@
     t.innerHTML = html.trim();
     return t.content;
   }
-
   function esc(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
-
   function fold(s) {
-    return String(s || "")
-      .normalize("NFD")
-      .replace(/\p{M}/gu, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
+    return String(s || "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   }
-
   function catalogUrl() {
     const path = location.pathname || "/";
     const marker = "/song-charts/";
     const i = path.indexOf(marker);
     if (i >= 0) return path.slice(0, i + marker.length) + "data/catalog.json";
     if (/\/song-charts\/?$/.test(path)) return path.replace(/\/?$/, "/") + "data/catalog.json";
-    try {
-      return new URL("data/catalog.json", location.href).href;
-    } catch (e) {
-      return "data/catalog.json";
-    }
+    try { return new URL("data/catalog.json", location.href).href; } catch (e) { return "data/catalog.json"; }
   }
-
   function parseHash() {
     const raw = (location.hash || "#/").replace(/^#/, "");
     const parts = raw.split("/").filter(Boolean);
@@ -59,16 +37,11 @@
     if (parts[0] === "s" && parts[1]) return { name: "song", id: decodeURIComponent(parts[1]) };
     return { name: "notfound" };
   }
-
   function artistOf(song) {
     return artistsById.get(song.artistId) || { id: song.artistId, name: song.artistId, aliases: [] };
   }
-  function hasChords(song) {
-    return song.chartType === "chords" || song.chartType === "both";
-  }
-  function hasTab(song) {
-    return song.chartType === "tab" || song.chartType === "both";
-  }
+  function hasChords(song) { return song.chartType === "chords" || song.chartType === "both"; }
+  function hasTab(song) { return song.chartType === "tab" || song.chartType === "both"; }
   function chartBadges(song) {
     const bits = [];
     if (hasChords(song)) bits.push('<span class="badge chords">chords</span>');
@@ -77,24 +50,17 @@
   }
   function songHref(song) { return "#/s/" + encodeURIComponent(song.id); }
   function artistHref(a) { return "#/a/" + encodeURIComponent(a.id); }
-
   function matchesQuery(song, artist, q) {
     if (!q) return true;
     const hay = [song.title, artist.name, ...(artist.aliases || []), song.album || "", song.year ? String(song.year) : ""].map(fold).join(" ");
-    const tokens = fold(q).split(" ").filter(Boolean);
-    return tokens.every((t) => hay.includes(t));
+    return fold(q).split(" ").filter(Boolean).every((t) => hay.includes(t));
   }
   function scoreSong(song, artist, q) {
     if (!q) return 0;
-    const fq = fold(q);
-    const title = fold(song.title);
-    const album = fold(song.album || "");
-    const an = fold(artist.name);
+    const fq = fold(q), title = fold(song.title), album = fold(song.album || ""), an = fold(artist.name);
     const aliases = (artist.aliases || []).map(fold).join(" ");
     let n = 0;
-    if (title === fq) n += 200;
-    else if (title.startsWith(fq)) n += 120;
-    else if (title.includes(fq)) n += 80;
+    if (title === fq) n += 200; else if (title.startsWith(fq)) n += 120; else if (title.includes(fq)) n += 80;
     if (album && (album === fq || album.includes(fq))) n += 50;
     if (an === fq) n += 25;
     if (aliases.split(" ").includes(fq) || an.includes(fq) || aliases.includes(fq)) n += 8;
@@ -103,8 +69,7 @@
   function artistMatches(artist, q) {
     if (!q) return false;
     const hay = [artist.name, ...(artist.aliases || [])].map(fold).join(" ");
-    const tokens = fold(q).split(" ").filter(Boolean);
-    return tokens.every((t) => hay.includes(t));
+    return fold(q).split(" ").filter(Boolean).every((t) => hay.includes(t));
   }
   function filterSongs(songs) {
     return songs.filter((s) => {
@@ -114,35 +79,25 @@
     });
   }
   function sortTitle(a, b) {
-    const ta = a.title.replace(/^(the|a|an)\s+/i, "");
-    const tb = b.title.replace(/^(the|a|an)\s+/i, "");
-    return ta.localeCompare(tb, undefined, { sensitivity: "base", numeric: true });
+    return a.title.replace(/^(the|a|an)\s+/i, "").localeCompare(b.title.replace(/^(the|a|an)\s+/i, ""), undefined, { sensitivity: "base", numeric: true });
   }
   function letterOf(title) {
-    const t = title.replace(/^(the|a|an)\s+/i, "").trim();
-    const ch = fold(t).charAt(0).toUpperCase();
+    const ch = fold(title.replace(/^(the|a|an)\s+/i, "").trim()).charAt(0).toUpperCase();
     return /[A-Z]/.test(ch) ? ch : "#";
   }
   function isSectionLine(trimmed) {
     const one = trimmed.match(/^\[([^\]]+)\]$/);
-    if (one) {
-      const inner = one[1].trim();
-      if (SECTION_NAME.test(inner)) return inner;
-      if (!CHORD_TOKEN.test(inner) && /[a-zA-Z]{3,}/.test(inner)) return inner;
-      return null;
-    }
+    if (!one) return null;
+    const inner = one[1].trim();
+    if (SECTION_NAME.test(inner)) return inner;
+    if (!CHORD_TOKEN.test(inner) && /[a-zA-Z]{3,}/.test(inner)) return inner;
     return null;
   }
   function renderChordProLine(line) {
     const trimmed = line.trim();
-    if (!trimmed.includes("[")) {
-      return '<div class="chart-line"><div class="lyric-row">' + esc(line) + "</div></div>";
-    }
-    let chords = "";
-    let lyrics = "";
+    if (!trimmed.includes("[")) return '<div class="chart-line"><div class="lyric-row">' + esc(line) + "</div></div>";
+    let chords = "", lyrics = "", last = 0, m;
     const re = /\[([^\]]+)\]/g;
-    let last = 0;
-    let m;
     while ((m = re.exec(trimmed))) {
       lyrics += trimmed.slice(last, m.index);
       if (chords.length < lyrics.length) chords += " ".repeat(lyrics.length - chords.length);
@@ -151,11 +106,9 @@
       last = m.index + m[0].length;
     }
     lyrics += trimmed.slice(last);
-    let html = '<div class="chart-line">';
-    html += '<div class="chord-row">' + esc(chords.replace(/\s+$/, "")) + "</div>";
+    let html = '<div class="chart-line"><div class="chord-row">' + esc(chords.replace(/\s+$/, "")) + "</div>";
     if (lyrics.replace(/\s/g, "")) html += '<div class="lyric-row">' + esc(lyrics) + "</div>";
-    html += "</div>";
-    return html;
+    return html + "</div>";
   }
   function renderChordPro(body) {
     if (!body) return "";
@@ -166,50 +119,20 @@
       if (!trimmed) continue;
       const dir = trimmed.match(/^\{([^:}]+)(?::\s*([^}]*))?\}/);
       if (dir) {
-        const key = dir[1].toLowerCase();
-        const val = (dir[2] || "").trim();
+        const key = dir[1].toLowerCase(), val = (dir[2] || "").trim();
         if (key === "s" || key === "comment" || key === "c" || key === "soc" || key === "sov" || key === "sob" || key.indexOf("start_of_") === 0) {
-          const label = val || key.replace(/^start_of_/, "").replace(/^so/, "");
-          html += '<div class="section-label">' + esc(label) + "</div>";
+          html += '<div class="section-label">' + esc(val || key.replace(/^start_of_/, "").replace(/^so/, "")) + "</div>";
         }
         continue;
       }
       const section = isSectionLine(trimmed);
-      if (section) {
-        html += '<div class="section-label">' + esc(section) + "</div>";
-        continue;
-      }
+      if (section) { html += '<div class="section-label">' + esc(section) + "</div>"; continue; }
       html += renderChordProLine(line);
     }
-    html += "</div>";
-    return html;
-  }
-  function renderPairBody(rows) {
-    let html = '<div class="chart" role="region" aria-label="Chord chart">';
-    for (const row of rows) {
-      if (!row) continue;
-      if (typeof row === "string") {
-        const t = row.trim();
-        const section = isSectionLine(t);
-        if (section) html += '<div class="section-label">' + esc(section) + "</div>";
-        else if (t) html += renderChordProLine(row);
-        continue;
-      }
-      if (row.section) {
-        html += '<div class="section-label">' + esc(row.section) + "</div>";
-        continue;
-      }
-      html += '<div class="chart-line">';
-      if (row.chords) html += '<div class="chord-row">' + esc(row.chords) + "</div>";
-      if (row.lyrics) html += '<div class="lyric-row">' + esc(row.lyrics) + "</div>";
-      html += "</div>";
-    }
-    html += "</div>";
-    return html;
+    return html + "</div>";
   }
   function renderBody(body) {
     if (!body) return "";
-    if (Array.isArray(body)) return renderPairBody(body);
     return renderChordPro(body);
   }
   function renderTab(tab) {
@@ -234,15 +157,8 @@
     if (q) {
       songs = songs.filter((s) => matchesQuery(s, artistOf(s), q));
       matchedArtists = catalog.artists.filter((a) => artistMatches(a, q));
-      songs = songs.slice().sort((a, b) => {
-        const sa = scoreSong(a, artistOf(a), q);
-        const sb = scoreSong(b, artistOf(b), q);
-        if (sb !== sa) return sb - sa;
-        return sortTitle(a, b);
-      });
-    } else {
-      songs = songs.slice().sort(sortTitle);
-    }
+      songs = songs.slice().sort((a, b) => { const d = scoreSong(b, artistOf(b), q) - scoreSong(a, artistOf(a), q); return d || sortTitle(a, b); });
+    } else songs = songs.slice().sort(sortTitle);
     let body = "";
     if (matchedArtists.length) {
       body += '<div class="status">Artists</div>';
@@ -252,47 +168,27 @@
         body += '<div class="artist-block"><a class="hit" href="' + artistHref(a) + '"><div class="hit-title">' + esc(a.name) + "</div><div class="hit-sub">' + esc(aliases || n + " songs") + (aliases ? " · " + n + " songs" : "") + "</div></a></div>";
       }
     }
-    if (!songs.length) {
-      body += '<p class="status">No matches.</p>';
-    } else if (!q) {
+    if (!songs.length) body += '<p class="status">No matches.</p>';
+    else if (!q) {
       const groups = new Map();
-      for (const s of songs) {
-        const L = letterOf(s.title);
-        if (!groups.has(L)) groups.set(L, []);
-        groups.get(L).push(s);
-      }
+      for (const s of songs) { const L = letterOf(s.title); if (!groups.has(L)) groups.set(L, []); groups.get(L).push(s); }
       body += '<div class="status">' + songs.length + ' songs · A–Z</div><div class="az">';
-      for (const [L, list] of groups) {
-        body += '<section><h2 class="az-letter">' + L + '</h2><div class="list">' + list.map(songLine).join("") + "</div></section>";
-      }
+      for (const [L, list] of groups) body += '<section><h2 class="az-letter">' + L + '</h2><div class="list">' + list.map(songLine).join("") + "</div></section>";
       body += "</div>";
     } else {
-      body += '<div class="status">' + songs.length + " song" + (songs.length === 1 ? "" : "s") + "</div>";
-      body += '<div class="list">' + songs.map(songLine).join("") + "</div>";
+      body += '<div class="status">' + songs.length + " song" + (songs.length === 1 ? "" : "s") + "</div><div class=\"list\">" + songs.map(songLine).join("") + "</div>";
     }
     app.replaceChildren($("<div>" + searchBox(true) + body + "</div>"));
     bindHome();
   }
   function bindHome() {
     const input = document.getElementById("q");
-    if (input) {
-      input.addEventListener("input", () => {
-        state.q = input.value;
-        render();
-        const again = document.getElementById("q");
-        if (again) {
-          again.focus();
-          const len = again.value.length;
-          try { again.setSelectionRange(len, len); } catch (e) {}
-        }
-      });
-    }
-    app.querySelectorAll("[data-filter]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        state.filter = btn.getAttribute("data-filter") || "all";
-        render();
-      });
+    if (input) input.addEventListener("input", () => {
+      state.q = input.value; render();
+      const again = document.getElementById("q");
+      if (again) { again.focus(); try { const len = again.value.length; again.setSelectionRange(len, len); } catch (e) {} }
     });
+    app.querySelectorAll("[data-filter]").forEach((btn) => btn.addEventListener("click", () => { state.filter = btn.getAttribute("data-filter") || "all"; render(); }));
   }
   function renderArtist(id) {
     const a = artistsById.get(id);
@@ -300,7 +196,7 @@
     const songs = catalog.songs.filter((s) => s.artistId === a.id).slice().sort(sortTitle);
     const alias = (a.aliases || []).length ? '<p class="aliases">Also known as ' + esc(a.aliases.join(", ")) + "</p>" : "";
     const extra = a.mbid ? '<p class="meta"><a href="https://musicbrainz.org/artist/' + esc(a.mbid) + '">MusicBrainz</a></p>' : "";
-    app.replaceChildren($("<div><p class=\"crumbs\"><a href=\"#/\">Catalog</a> / artist</p><h1>" + esc(a.name) + "</h1>" + alias + extra + '<div class="status">' + songs.length + " song" + (songs.length === 1 ? "" : "s") + "</div><div class=\"list\">" + songs.map(songLine).join("") + "</div></div>"));
+    app.replaceChildren($("<div><p class=\"crumbs\"><a href=\"#/\">Catalog</a> / artist</p><h1>" + esc(a.name) + "</h1>" + alias + extra + '<div class="status">' + songs.length + " song" + (songs.length === 1 ? "" : "s") + '</div><div class="list">' + songs.map(songLine).join("") + "</div></div>"));
     document.title = a.name + " · song-charts";
   }
   function renderSong(id) {
@@ -314,15 +210,9 @@
     if (song.capo) bits.push("Capo " + esc(song.capo));
     if (song.tuning) bits.push("Tuning " + esc(song.tuning));
     let chart = "";
-    if (song.chartType === "chords" || song.chartType === "both") {
-      chart += '<div class="chart-label">Chords over lyrics</div>' + renderBody(song.body);
-    }
-    if (song.chartType === "tab" || song.chartType === "both") {
-      chart += '<div class="chart-label">Tab</div>' + renderTab(song.tab || (song.chartType === "tab" ? song.body : ""));
-    }
-    if (song.chartType === "none" || !song.chartType) {
-      chart = '<div class="notice"><strong>No licensed chart yet.</strong> Metadata only — no lyrics, and no guessed chord sheet.</div>';
-    }
+    if (song.chartType === "chords" || song.chartType === "both") chart += '<div class="chart-label">Chords over lyrics</div>' + renderBody(song.body);
+    if (song.chartType === "tab" || song.chartType === "both") chart += '<div class="chart-label">Tab</div>' + renderTab(song.tab || (song.chartType === "tab" ? song.body : ""));
+    if (song.chartType === "none" || !song.chartType) chart = '<div class="notice"><strong>No licensed chart yet.</strong> Metadata only — no lyrics, and no guessed chord sheet.</div>';
     app.replaceChildren($("<article><p class=\"crumbs\"><a href=\"#/\">Catalog</a> / <a href=\"" + artistHref(a) + "\">" + esc(a.name) + "</a></p><h1>" + esc(song.title) + "</h1><p class=\"meta\"><a href=\"" + artistHref(a) + "\">" + esc(a.name) + "</a>" + (bits.length ? " · " + bits.join(" · ") : "") + "</p>" + chart + '<p class="source">Source: ' + esc(song.source || "Not recorded") + (song.license ? " · License: " + esc(song.license) : "") + "</p></article>"));
     document.title = song.title + " · " + a.name + " · song-charts";
   }
@@ -339,38 +229,33 @@
     else renderNotFound();
   }
   document.addEventListener("keydown", (e) => {
-    if (e.key === "/" && document.activeElement && document.activeElement.id !== "q") {
-      if (parseHash().name === "home") {
-        e.preventDefault();
-        const q = document.getElementById("q");
-        if (q) q.focus();
-      }
+    if (e.key === "/" && document.activeElement && document.activeElement.id !== "q" && parseHash().name === "home") {
+      e.preventDefault();
+      const q = document.getElementById("q");
+      if (q) q.focus();
     }
   });
   window.addEventListener("hashchange", render);
   async function boot() {
     const url = catalogUrl();
     const res = await fetch(url);
-    if (!res.ok) {
-      app.textContent = "Could not load catalog.json (" + res.status + ").";
-      return;
-    }
+    if (!res.ok) { app.textContent = "Could not load catalog.json (" + res.status + ")."; return; }
     catalog = await res.json();
-    try {
-      const metaUrl = url.replace(/catalog\.json(?:\?.*)?$/, "meta.json");
-      const mres = await fetch(metaUrl);
-      if (mres.ok) {
-        const extra = await mres.json();
-        const more = extra.songs || extra;
-        if (Array.isArray(more) && more.length) catalog.songs = catalog.songs.concat(more);
-      }
-    } catch (e) {}
+    const extras = ["meta.json", "meta2.json", "meta3.json"];
+    for (let i = 0; i < extras.length; i++) {
+      try {
+        const extraUrl = url.replace(/catalog\.json(?:\?.*)?$/, extras[i]);
+        const mres = await fetch(extraUrl);
+        if (mres.ok) {
+          const extra = await mres.json();
+          const more = extra.songs || extra;
+          if (Array.isArray(more) && more.length) catalog.songs = catalog.songs.concat(more);
+        }
+      } catch (e) {}
+    }
     artistsById = new Map(catalog.artists.map((a) => [a.id, a]));
     songsById = new Map(catalog.songs.map((s) => [s.id, s]));
-    if (countEl) {
-      countEl.hidden = false;
-      countEl.textContent = catalog.songs.length + " songs";
-    }
+    if (countEl) { countEl.hidden = false; countEl.textContent = catalog.songs.length + " songs"; }
     render();
   }
   boot();

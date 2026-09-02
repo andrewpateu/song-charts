@@ -8,6 +8,7 @@
   const state = { q: "", filter: "all" };
   const CHORD_TOKEN = /^[A-G][#b]?(?:maj7|maj9|maj|min7|min|m7b5|m7|m9|m11|m13|madd9|dim7|dim|aug|sus2|sus4|sus|add9|add11|add2|add4|7sus4|9sus4|7|9|11|13|6|2|4|m)?(?:\/[A-G][#b]?)?$/i;
   const SECTION_NAME = /^(verse|chorus|bridge|intro|outro|tag|instrumental|pre-?chorus|prechorus|solo|interlude|refrain|coda|ending|break|hook|inst|ending)(\s*\d+)?(\s*[A-Z])?$/i;
+  const SINGLES = "Singles / other";
   function $(html) { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content; }
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
   function fold(s) { return String(s || "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
@@ -30,14 +31,31 @@
   function artistOf(song) { return artistsById.get(song.artistId) || { id: song.artistId, name: song.artistId, aliases: [] }; }
   function hasChords(song) { return song.chartType === "chords" || song.chartType === "both"; }
   function hasTab(song) { return song.chartType === "tab" || song.chartType === "both"; }
+  function isPlayable(song) { return hasChords(song) || hasTab(song); }
   function chartBadges(song) {
     const bits = [];
     if (hasChords(song)) bits.push('<span class="badge chords">chords</span>');
     if (hasTab(song)) bits.push('<span class="badge tab">tab</span>');
+    if (!bits.length) bits.push('<span class="badge listed">listed</span>');
     return bits.join("");
   }
   function songHref(song) { return "#/s/" + encodeURIComponent(song.id); }
   function artistHref(a) { return "#/a/" + encodeURIComponent(a.id); }
+  function artistHasSongs(a) { return catalog.songs.some((s) => s.artistId === a.id); }
+  function artistAnchor(a) {
+    if (artistHasSongs(a)) return '<a href="' + artistHref(a) + '">' + esc(a.name) + "</a>";
+    return esc(a.name);
+  }
+  function songFacts(song) {
+    const rows = [];
+    if (song.album) rows.push(["Album", song.album]);
+    if (song.year) rows.push(["Year", String(song.year)]);
+    if (song.key) rows.push(["Key", song.key]);
+    if (song.capo) rows.push(["Capo", String(song.capo)]);
+    if (song.tuning) rows.push(["Tuning", song.tuning]);
+    if (!rows.length) return "";
+    return '<dl class="song-facts">' + rows.map((r) => "<div><dt>" + esc(r[0]) + "</dt><dd>" + esc(r[1]) + "</dd></div>").join("") + "</dl>";
+  }
   function matchesQuery(song, artist, q) {
     if (!q) return true;
     const hay = [song.title, artist.name, ...(artist.aliases || []), song.album || "", song.year ? String(song.year) : ""].map(fold).join(" ");
@@ -60,17 +78,29 @@
   }
   function filterSongs(songs) {
     return songs.filter((s) => {
-      if (state.filter === "chords" && !hasChords(s)) return false;
-      if (state.filter === "tab" && !hasTab(s)) return false;
+      if (state.filter === "playable" && !isPlayable(s)) return false;
+      if (state.filter === "listed" && isPlayable(s)) return false;
       return true;
     });
   }
   function sortTitle(a, b) {
     return a.title.replace(/^(the|a|an)\s+/i, "").localeCompare(b.title.replace(/^(the|a|an)\s+/i, ""), undefined, { sensitivity: "base", numeric: true });
   }
-  function letterOf(title) {
-    const ch = fold(title.replace(/^(the|a|an)\s+/i, "").trim()).charAt(0).toUpperCase();
-    return /[A-Z]/.test(ch) ? ch : "#";
+  function sortArtistName(a, b) {
+    return a.name.replace(/^(the|a|an)\s+/i, "").localeCompare(b.name.replace(/^(the|a|an)\s+/i, ""), undefined, { sensitivity: "base" });
+  }
+  function songsOf(artistId) { return catalog.songs.filter((s) => s.artistId === artistId); }
+  function artistCounts(a) {
+    const songs = songsOf(a.id);
+    let playable = 0;
+    for (let i = 0; i < songs.length; i++) if (isPlayable(songs[i])) playable++;
+    return { total: songs.length, playable: playable, listed: songs.length - playable };
+  }
+  function countLabel(c) {
+    if (c.playable && c.listed) return c.playable + " playable · " + c.listed + " listed";
+    if (c.playable) return c.playable + " playable";
+    if (c.listed) return c.listed + " listed";
+    return "0 songs";
   }
   function isSectionLine(trimmed) {
     const one = trimmed.match(/^\[([^\]]+)\]$/);
@@ -121,7 +151,7 @@
   function renderTab(tab) { return tab ? '<pre class="tab" role="region" aria-label="Guitar tab">' + esc(String(tab).trimEnd()) + "</pre>" : ""; }
   function filtersBar() {
     const btn = (id, label) => '<button type="button" class="filter" data-filter="' + id + '" aria-pressed="' + (state.filter === id) + '">' + label + "</button>";
-    return '<div class="filters" role="group" aria-label="Chart type filters">' + btn("all", "All") + btn("chords", "Has chords") + btn("tab", "Has tab") + "</div>";
+    return '<div class="filters" role="group" aria-label="Chart type filters">' + btn("all", "All") + btn("playable", "Playable") + btn("listed", "Listed only") + "</div>";
   }
   function searchBox(autofocus) {
     return '<div class="search-wrap"><label class="search-label" for="q">Search titles, artists, aliases</label><input class="search" id="q" type="search" spellcheck="false" autocomplete="off" placeholder="bunii, niccolò terre, amazing grace…" value="' + esc(state.q) + '"' + (autofocus ? " autofocus" : "") + ">" + "</div>" + filtersBar();
@@ -130,32 +160,36 @@
     const a = artistOf(song);
     return '<a class="hit" href="' + songHref(song) + '"><div class="hit-title">' + esc(song.title) + chartBadges(song) + '</div><div class="hit-sub">' + esc(a.name) + (song.year ? " · " + song.year : "") + (song.key ? " · " + esc(song.key) : "") + "</div></a>";
   }
+  function artistRow(a) {
+    const c = artistCounts(a);
+    if (!c.total) return "";
+    const aliases = (a.aliases || []).slice(0, 4).join(" · ");
+    const counts = countLabel(c);
+    return '<div class="artist-block"><a class="hit" href="' + artistHref(a) + '"><div class="hit-title">' + esc(a.name) + '</div><div class="hit-sub">' + esc(aliases ? aliases + " · " + counts : counts) + "</div></a></div>";
+  }
+  function artistsWithSongs() {
+    return catalog.artists.filter((a) => songsOf(a.id).length > 0).slice().sort(sortArtistName);
+  }
   function renderHome() {
     const q = state.q.trim();
-    let songs = filterSongs(catalog.songs);
-    let matchedArtists = [];
-    if (q) {
-      songs = songs.filter((s) => matchesQuery(s, artistOf(s), q));
-      matchedArtists = catalog.artists.filter((a) => artistMatches(a, q));
-      songs = songs.slice().sort((a, b) => (scoreSong(b, artistOf(b), q) - scoreSong(a, artistOf(a), q)) || sortTitle(a, b));
-    } else songs = songs.slice().sort(sortTitle);
     let body = "";
-    if (matchedArtists.length) {
-      body += '<div class="status">Artists</div>';
-      for (const a of matchedArtists) {
-        const n = catalog.songs.filter((s) => s.artistId === a.id).length;
-        const aliases = (a.aliases || []).slice(0, 4).join(" · ");
-        body += '<div class="artist-block"><a class="hit" href="' + artistHref(a) + '"><div class="hit-title">' + esc(a.name) + '</div><div class="hit-sub">' + esc(aliases || n + " songs") + (aliases ? " · " + n + " songs" : "") + "</div></a></div>";
+    if (!q) {
+      let artists = artistsWithSongs();
+      if (state.filter === "playable") artists = artists.filter((a) => artistCounts(a).playable > 0);
+      else if (state.filter === "listed") artists = artists.filter((a) => artistCounts(a).listed > 0);
+      body += '<div class="status">' + artists.length + " artist" + (artists.length === 1 ? "" : "s") + "</div>";
+      for (const a of artists) body += artistRow(a);
+    } else {
+      let songs = filterSongs(catalog.songs).filter((s) => matchesQuery(s, artistOf(s), q));
+      songs = songs.slice().sort((a, b) => (scoreSong(b, artistOf(b), q) - scoreSong(a, artistOf(a), q)) || sortTitle(a, b));
+      let matchedArtists = catalog.artists.filter((a) => artistMatches(a, q) && songsOf(a.id).length > 0).slice().sort(sortArtistName);
+      if (matchedArtists.length) {
+        body += '<div class="status">Artists</div>';
+        for (const a of matchedArtists) body += artistRow(a);
       }
+      if (!songs.length) body += '<p class="status">No matches.</p>';
+      else body += '<div class="status">' + songs.length + " song" + (songs.length === 1 ? "" : "s") + '</div><div class="list">' + songs.map(songLine).join("") + "</div>";
     }
-    if (!songs.length) body += '<p class="status">No matches.</p>';
-    else if (!q) {
-      const groups = new Map();
-      for (const s of songs) { const L = letterOf(s.title); if (!groups.has(L)) groups.set(L, []); groups.get(L).push(s); }
-      body += '<div class="status">' + songs.length + ' songs · A–Z</div><div class="az">';
-      for (const [L, list] of groups) body += '<section><h2 class="az-letter">' + L + '</h2><div class="list">' + list.map(songLine).join("") + "</div></section>";
-      body += "</div>";
-    } else body += '<div class="status">' + songs.length + " song" + (songs.length === 1 ? "" : "s") + '</div><div class="list">' + songs.map(songLine).join("") + "</div>";
     app.replaceChildren($("<div>" + searchBox(true) + body + "</div>"));
     bindHome();
   }
@@ -168,30 +202,58 @@
     });
     app.querySelectorAll("[data-filter]").forEach((btn) => btn.addEventListener("click", () => { state.filter = btn.getAttribute("data-filter") || "all"; render(); }));
   }
+  function albumKey(song) {
+    const alb = (song.album || "").trim();
+    return alb || SINGLES;
+  }
+  function groupByAlbum(songs) {
+    const groups = new Map();
+    const years = new Map();
+    for (const s of songs) {
+      const k = albumKey(s);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(s);
+      if (s.year && (!years.has(k) || s.year > years.get(k))) years.set(k, s.year);
+    }
+    for (const list of groups.values()) list.sort(sortTitle);
+    const keys = Array.from(groups.keys());
+    keys.sort((a, b) => {
+      if (a === SINGLES) return 1;
+      if (b === SINGLES) return -1;
+      const ya = years.get(a) || 0, yb = years.get(b) || 0;
+      if (ya !== yb) return yb - ya;
+      return a.localeCompare(b, undefined, { sensitivity: "base" });
+    });
+    return keys.map((k) => ({ album: k, year: years.get(k), songs: groups.get(k) }));
+  }
   function renderArtist(id) {
     const a = artistsById.get(id);
     if (!a) return renderNotFound();
-    const songs = catalog.songs.filter((s) => s.artistId === a.id).slice().sort(sortTitle);
+    const songs = filterSongs(catalog.songs.filter((s) => s.artistId === a.id));
     const alias = (a.aliases || []).length ? '<p class="aliases">Also known as ' + esc(a.aliases.join(", ")) + "</p>" : "";
     const extra = a.mbid ? '<p class="meta"><a href="https://musicbrainz.org/artist/' + esc(a.mbid) + '">MusicBrainz</a></p>' : "";
-    app.replaceChildren($('<div><p class="crumbs"><a href="#/">Catalog</a> / artist</p><h1>' + esc(a.name) + "</h1>" + alias + extra + '<div class="status">' + songs.length + " song" + (songs.length === 1 ? "" : "s") + '</div><div class="list">' + songs.map(songLine).join("") + "</div></div>"));
+    const c = artistCounts(a);
+    let list = "";
+    const grouped = groupByAlbum(songs);
+    for (const g of grouped) {
+      const yr = g.year ? " · " + g.year : "";
+      list += '<section class="album-group"><h2 class="album-heading">' + esc(g.album) + esc(yr) + '</h2><div class="list">' + g.songs.map(songLine).join("") + "</div></section>";
+    }
+    if (!songs.length) list = '<p class="status">No songs in this filter.</p>';
+    app.replaceChildren($('<div><p class="crumbs"><a href="#/">Catalog</a> / artist</p><h1>' + esc(a.name) + "</h1>" + alias + extra + '<div class="status">' + countLabel(c) + "</div>" + list + "</div>"));
     document.title = a.name + " · song-charts";
   }
   function renderSong(id) {
     const song = songsById.get(id);
     if (!song) return renderNotFound();
     const a = artistOf(song);
-    const bits = [];
-    if (song.year) bits.push(String(song.year));
-    if (song.album) bits.push(esc(song.album));
-    if (song.key) bits.push("Key " + esc(song.key));
-    if (song.capo) bits.push("Capo " + esc(song.capo));
-    if (song.tuning) bits.push("Tuning " + esc(song.tuning));
     let chart = "";
-    if (song.chartType === "chords" || song.chartType === "both") chart += '<div class="chart-label">Chords over lyrics</div>' + renderBody(song.body);
-    if (song.chartType === "tab" || song.chartType === "both") chart += '<div class="chart-label">Tab</div>' + renderTab(song.tab || (song.chartType === "tab" ? song.body : ""));
-    if (song.chartType === "none" || !song.chartType) chart = '<div class="notice"><strong>No licensed chart yet.</strong> Metadata only — no lyrics, and no guessed chord sheet.</div>';
-    app.replaceChildren($('<article><p class="crumbs"><a href="#/">Catalog</a> / <a href="' + artistHref(a) + '">' + esc(a.name) + '</a></p><h1>' + esc(song.title) + '</h1><p class="meta"><a href="' + artistHref(a) + '">' + esc(a.name) + "</a>" + (bits.length ? " · " + bits.join(" · ") : "") + "</p>" + chart + '<p class="source">Source: ' + esc(song.source || "Not recorded") + (song.license ? " · License: " + esc(song.license) : "") + "</p></article>"));
+    const playable = isPlayable(song);
+    if (hasChords(song)) chart += '<div class="chart-label">Chords over lyrics</div>' + renderBody(song.body);
+    if (hasTab(song)) chart += '<div class="chart-label">Tab</div>' + renderTab(song.tab || (song.chartType === "tab" ? song.body : ""));
+    if (!playable) chart = '<div class="notice"><strong>No licensed chart yet.</strong> Metadata only — no lyrics, and no guessed chord sheet.</div>';
+    const artistHtml = artistAnchor(a);
+    app.replaceChildren($('<article><p class="crumbs"><a href="#/">Catalog</a> / ' + artistHtml + '</p><h1>' + esc(song.title) + '</h1><p class="meta">' + artistHtml + "</p>" + songFacts(song) + chart + '<p class="source">Source: ' + esc(song.source || "Not recorded") + (song.license ? " · License: " + esc(song.license) : "") + "</p></article>"));
     document.title = song.title + " · " + a.name + " · song-charts";
   }
   function renderNotFound() {
@@ -214,23 +276,39 @@
     }
   });
   window.addEventListener("hashchange", render);
+  function mergeExtra(extra) {
+    if (!extra) return;
+    if (Array.isArray(extra.artists) && extra.artists.length) {
+      const seenA = new Set(catalog.artists.map((a) => a.id));
+      for (let i = 0; i < extra.artists.length; i++) {
+        const a = extra.artists[i];
+        if (a && a.id && !seenA.has(a.id)) { seenA.add(a.id); catalog.artists.push(a); }
+      }
+    }
+    const more = extra.songs || (Array.isArray(extra) ? extra : null);
+    if (Array.isArray(more) && more.length) catalog.songs = catalog.songs.concat(more);
+  }
   async function boot() {
     const url = catalogUrl();
     const res = await fetch(url);
     if (!res.ok) { app.textContent = "Could not load catalog.json (" + res.status + ")."; return; }
     catalog = await res.json();
-    const extras = ["meta.json", "more.json", "charts.json", "charts2.json", "charts3.json", "charts4.json", "charts5.json", "indie1.json", "indie2.json", "indie3.json"];
+    if (!Array.isArray(catalog.artists)) catalog.artists = [];
+    if (!Array.isArray(catalog.songs)) catalog.songs = [];
+    const extras = ["meta.json", "more.json", "charts.json", "charts2.json", "charts3.json", "charts4.json", "charts5.json", "indie1.json", "indie2.json", "indie3.json", "indie4.json"];
     for (let i = 0; i < extras.length; i++) {
       try {
         const mres = await fetch(url.replace(/catalog\.json(?:\?.*)?$/, extras[i]));
-        if (mres.ok) {
-          const extra = await mres.json();
-          const more = extra.songs || extra;
-          if (Array.isArray(more) && more.length) catalog.songs = catalog.songs.concat(more);
-        }
+        if (mres.ok) mergeExtra(await mres.json());
       } catch (err) {}
     }
-    artistsById = new Map(catalog.artists.map((a) => [a.id, a]));
+    const seenA = new Map();
+    for (let i = 0; i < catalog.artists.length; i++) {
+      const a = catalog.artists[i];
+      if (a && a.id && !seenA.has(a.id)) seenA.set(a.id, a);
+    }
+    catalog.artists = Array.from(seenA.values());
+    artistsById = seenA;
     const seen = new Map();
     for (let i = 0; i < catalog.songs.length; i++) {
       const s = catalog.songs[i];

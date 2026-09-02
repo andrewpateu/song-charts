@@ -32,7 +32,7 @@ Serve the repo root (any static server) or open via GitHub Pages. Hash routes:
 Song and artist records live in `data/*.json`.
 
 - `data/catalog.json` — artists plus the bunii core index
-- Extra files loaded by `js/app.js` (songs **and** artists, deduped by `id`): `meta.json`, `more.json`, `charts.json`–`charts5.json`, `indie1.json`–`indie4.json`
+- Extra files loaded by `js/app.js` (songs **and** artists, deduped by `id`): `meta.json`, `more.json`, `charts.json`–`charts6.json`, `indie1.json`–`indie4.json`
 
 `chartType` is `chords`, `tab`, `both`, or `none`. Songs without a licensed chart stay `none` (listed, not playable).
 
